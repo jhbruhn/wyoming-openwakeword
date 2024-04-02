@@ -32,6 +32,11 @@ async def main() -> None:
         help="Path to directory with custom wake word models",
     )
     parser.add_argument(
+        "--custom-verifiers-dir",
+        default=None,
+        help="Path to directory with custom verifiers named after the model files with .pkl ending",
+    )
+    parser.add_argument(
         "--preload-model",
         action="append",
         default=[],
@@ -42,6 +47,12 @@ async def main() -> None:
         type=float,
         default=0.5,
         help="Wake word model threshold (0.0-1.0, default: 0.5)",
+    )
+    parser.add_argument(
+        "--custom-verifier-threshold",
+        type=float,
+        default=0.3,
+        help="Threshold of the OpenWakeWord model when custom verifiers are active (0.0-1.0, default: 0.3)"
     )
     parser.add_argument(
         "--trigger-level",
@@ -95,6 +106,7 @@ async def main() -> None:
     state = State(
         models_dir=Path(args.models_dir),
         custom_model_dirs=[Path(d) for d in args.custom_model_dir],
+        custom_verifiers_dir=Path(args.custom_verifiers_dir) if args.custom_verifiers_dir else None,
         debug_probability=args.debug_probability,
         output_dir=args.output_dir,
     )
@@ -105,6 +117,7 @@ async def main() -> None:
         args.preload_model,
         threshold=args.threshold,
         trigger_level=args.trigger_level,
+        custom_verifier_threshold=args.custom_verifier_threshold,
         vad_threshold=args.vad_threshold,
     )
 

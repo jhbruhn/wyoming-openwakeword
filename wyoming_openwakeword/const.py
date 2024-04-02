@@ -45,6 +45,7 @@ class WakeWordData:
     activations: int = 0
     threshold: float = 0.5
     trigger_level: int = 1
+    custom_verifier_threshold: float = 0.3
     is_processing: bool = False
 
     def reset(self) -> None:

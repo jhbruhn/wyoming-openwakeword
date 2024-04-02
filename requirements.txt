@@ -1,3 +1,5 @@
 tflite-runtime-nightly
 onnxruntime>=1.10.0,<2
 wyoming==1.5.3
+scikit-learn>=1,<2
+openwakeword>=0.6.0

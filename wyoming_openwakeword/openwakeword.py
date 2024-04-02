@@ -2,6 +2,7 @@ import asyncio
 import logging
 from datetime import datetime
 from typing import Dict, List, Optional, TextIO
+import pickle
 
 import numpy as np
 
@@ -242,6 +243,7 @@ def ww_proc(
     state: State,
     ww_model_key: str,
     ww_model_path: str,
+    custom_verifier_path: Optional[str],
     loop: asyncio.AbstractEventLoop,
     vad_threshold: float,
 ):
@@ -255,6 +257,11 @@ def ww_proc(
         ww_input_index = ww_input["index"]
         ww_output_index = ww_model.get_output_details()[0]["index"]
         # ww = [batch x window x features (96)] => [batch x probability]
+
+        custom_verifier = None
+        if custom_verifier_path:
+            _LOGGER.info("Loading custom verifier %s", custom_verifier_path)
+            custom_verifier = pickle.load(open(custom_verifier_path, 'rb'))
 
         client: Optional[ClientData] = None
 
@@ -317,6 +324,10 @@ def ww_proc(
                     probabilities = ww_model.get_tensor(ww_output_index)
                     probability = probabilities[0]
 
+                    custom_verifier_probability = 1.0
+                    if custom_verifier:
+                        custom_verifier_probability = custom_verifier.predict_proba(embeddings_tensor)[0][-1]
+
                     coros = []
                     with state.clients_lock:
                         client = state.clients.get(client_id)
@@ -329,11 +340,12 @@ def ww_proc(
                         voice_detected = (vad_threshold <= 0.0 or vad_max_score >= vad_threshold)
                         if state.debug_probability:
                             _LOGGER.debug(
-                                "client=%s, wake_word=%s, probability=%s, vad_probability=%s",
+                                "client=%s, wake_word=%s, probability=%s, vad_probability=%s, custom_verifier_probability=%s",
                                 client_id,
                                 ww_model_key,
                                 probability.item(),
                                 vad_max_score,
+                                custom_verifier_probability,
                             )
 
                         prob_file: Optional[TextIO] = None
@@ -352,8 +364,13 @@ def ww_proc(
                             )
 
                         client_data = client.wake_words[ww_model_key]
+                        probability = probability.item()
 
-                        if probability.item() >= client_data.threshold and voice_detected:
+                        if custom_verifier:
+                            if probability >= client_data.custom_verifier_threshold:
+                                probability = custom_verifier_probability
+
+                        if probability >= client_data.threshold and voice_detected:
                             # Increase activation
                             client_data.activations += 1
 

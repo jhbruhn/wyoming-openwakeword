@@ -20,6 +20,9 @@ class State:
     custom_model_dirs: List[Path] = field(default_factory=list)
     """Directories with custom wake word models."""
 
+    custom_verifiers_dir: Path = None
+    """Directory with custom verifiers"""
+
     ww_threads: Dict[str, Thread] = field(default_factory=dict)
     ww_threads_lock: Lock = field(default_factory=Lock)
 

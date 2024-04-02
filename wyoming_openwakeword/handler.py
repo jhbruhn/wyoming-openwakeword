@@ -75,6 +75,7 @@ class OpenWakeWordEventHandler(AsyncEventHandler):
                     detect.names,
                     threshold=self.cli_args.threshold,
                     trigger_level=self.cli_args.trigger_level,
+                    custom_verifier_threshold=self.cli_args.custom_verifier_threshold,
                     vad_threshold=self.cli_args.vad_threshold,
                 )
 
@@ -214,7 +215,7 @@ class OpenWakeWordEventHandler(AsyncEventHandler):
 # -----------------------------------------------------------------------------
 
 
-def ensure_loaded(state: State, names: List[str], threshold: float, trigger_level: int, vad_threshold: float):
+def ensure_loaded(state: State, names: List[str], threshold: float, trigger_level: int, custom_verifier_threshold: float, vad_threshold: float):
     """Ensure wake words are loaded by name."""
     with state.clients_lock, state.ww_threads_lock:
         for model_name in names:
@@ -243,6 +244,19 @@ def ensure_loaded(state: State, names: List[str], threshold: float, trigger_leve
             if model_path is None:
                 raise ValueError(f"Wake word model not found: {model_name}")
 
+            custom_verifier_paths = _get_custom_verifier_files(state)
+            custom_verifier_path: Optional[Path] = None
+
+            for maybe_custom_verifier_path in custom_verifier_paths:
+                if norm_model_name == _normalize_key(maybe_custom_verifier_path.stem):
+                    custom_verifier_path = maybe_custom_verifier_path
+                    break
+
+                if match := _WAKE_WORD_WITH_VERSION.match(model_name):
+                    if _normalize_key(maybe_custom_verifier_path.stem) == _normalize_key(match.group(1)):
+                        custom_verifier_path = maybe_custom_verifier_path
+                        break
+
             # Start thread for model
             model_key = model_path.stem
             state.wake_words[model_key] = WakeWordState()
@@ -253,6 +267,7 @@ def ensure_loaded(state: State, names: List[str], threshold: float, trigger_leve
                     state,
                     model_key,
                     model_path,
+                    custom_verifier_path,
                     asyncio.get_running_loop(),
                     vad_threshold,
                 ),
@@ -263,6 +278,7 @@ def ensure_loaded(state: State, names: List[str], threshold: float, trigger_leve
                 client_data.wake_words[model_key] = WakeWordData(
                     threshold=threshold,
                     trigger_level=trigger_level,
+                    custom_verifier_threshold=custom_verifier_threshold
                 )
 
             _LOGGER.debug("Started thread for %s", model_key)
@@ -283,6 +299,13 @@ def _get_wake_word_files(state: State) -> List[Path]:
         model_paths.extend(custom_model_dir.glob("*.tflite"))
 
     return model_paths
+
+
+def _get_custom_verifier_files(state: State) -> List[Path]:
+    """Get paths to all available custom verifier files."""
+    if state.custom_verifiers_dir:
+        return state.custom_verifiers_dir.glob("*.pkl")
+    return []
 
 
 def _normalize_key(model_key: str) -> str:
