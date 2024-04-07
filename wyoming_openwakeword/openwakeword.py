@@ -244,7 +244,6 @@ def ww_proc(
     state: State,
     ww_model_key: str,
     ww_model_path: str,
-    custom_verifier: Optional[CustomVerifier],
     loop: asyncio.AbstractEventLoop,
     vad_threshold: float,
 ):
@@ -260,6 +259,14 @@ def ww_proc(
         # ww = [batch x window x features (96)] => [batch x probability]
 
         client: Optional[ClientData] = None
+
+        custom_verifier = None
+        try:
+            custom_verifier = state.custom_verifier_manager.get_verifier(ww_model_path, ww_model_key)
+            _LOGGER.debug("Custom verifier for %s loaded", ww_model_key)
+        except:
+            _LOGGER.info(f"Custom verifier for {ww_model_key} disabled")
+
 
         ww_state = state.wake_words[ww_model_key]
         while state.is_running:
