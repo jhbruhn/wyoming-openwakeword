@@ -4,6 +4,7 @@ from threading import Lock, Semaphore, Thread
 from typing import Dict, List, Optional
 
 from .const import ClientData
+from .custom_verifier import CustomVerifierManager
 
 
 @dataclass
@@ -20,8 +21,8 @@ class State:
     custom_model_dirs: List[Path] = field(default_factory=list)
     """Directories with custom wake word models."""
 
-    custom_verifiers_dir: Path = None
-    """Directory with custom verifiers"""
+    custom_verifier_manager: CustomVerifierManager = None
+    """Manager for custom verifiers"""
 
     ww_threads: Dict[str, Thread] = field(default_factory=dict)
     ww_threads_lock: Lock = field(default_factory=Lock)

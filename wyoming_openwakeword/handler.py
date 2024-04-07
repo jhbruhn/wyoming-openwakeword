@@ -244,18 +244,11 @@ def ensure_loaded(state: State, names: List[str], threshold: float, trigger_leve
             if model_path is None:
                 raise ValueError(f"Wake word model not found: {model_name}")
 
-            custom_verifier_paths = _get_custom_verifier_files(state)
-            custom_verifier_path: Optional[Path] = None
-
-            for maybe_custom_verifier_path in custom_verifier_paths:
-                if norm_model_name == _normalize_key(maybe_custom_verifier_path.stem):
-                    custom_verifier_path = maybe_custom_verifier_path
-                    break
-
-                if match := _WAKE_WORD_WITH_VERSION.match(model_name):
-                    if _normalize_key(maybe_custom_verifier_path.stem) == _normalize_key(match.group(1)):
-                        custom_verifier_path = maybe_custom_verifier_path
-                        break
+            custom_verifier = None
+ #           try:
+            custom_verifier = state.custom_verifier_manager.get_verifier(model_path, model_name)
+#            except e:
+  #              _LOGGER.info(f"Could not load custom verifier for {model_name}")
 
             # Start thread for model
             model_key = model_path.stem
@@ -267,7 +260,7 @@ def ensure_loaded(state: State, names: List[str], threshold: float, trigger_leve
                     state,
                     model_key,
                     model_path,
-                    custom_verifier_path,
+                    custom_verifier,
                     asyncio.get_running_loop(),
                     vad_threshold,
                 ),

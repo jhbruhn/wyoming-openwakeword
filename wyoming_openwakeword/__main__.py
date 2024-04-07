@@ -12,6 +12,7 @@ from . import __version__
 from .handler import OpenWakeWordEventHandler, ensure_loaded
 from .openwakeword import embeddings_proc, mels_proc
 from .state import State
+from .custom_verifier import CustomVerifierManager
 
 _LOGGER = logging.getLogger()
 _DIR = Path(__file__).parent
@@ -32,9 +33,9 @@ async def main() -> None:
         help="Path to directory with custom wake word models",
     )
     parser.add_argument(
-        "--custom-verifiers-dir",
+        "--custom-verifier-samples-dir",
         default=None,
-        help="Path to directory with custom verifiers named after the model files with .pkl ending",
+        help="Path to directory with samples for custom verifiers. Contains one folder for each model name, which in turn contains negative and positive sample directories. The positive samples directory contains subdirectories with speaker names.",
     )
     parser.add_argument(
         "--preload-model",
@@ -106,7 +107,7 @@ async def main() -> None:
     state = State(
         models_dir=Path(args.models_dir),
         custom_model_dirs=[Path(d) for d in args.custom_model_dir],
-        custom_verifiers_dir=Path(args.custom_verifiers_dir) if args.custom_verifiers_dir else None,
+        custom_verifier_manager=CustomVerifierManager(args.custom_verifier_samples_dir) if args.custom_verifier_samples_dir else None,
         debug_probability=args.debug_probability,
         output_dir=args.output_dir,
     )
