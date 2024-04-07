@@ -245,10 +245,10 @@ def ensure_loaded(state: State, names: List[str], threshold: float, trigger_leve
                 raise ValueError(f"Wake word model not found: {model_name}")
 
             custom_verifier = None
- #           try:
-            custom_verifier = state.custom_verifier_manager.get_verifier(model_path, model_name)
-#            except e:
-  #              _LOGGER.info(f"Could not load custom verifier for {model_name}")
+            try:
+                custom_verifier = state.custom_verifier_manager.get_verifier(model_path, model_name)
+            except:
+                _LOGGER.info(f"Could not load custom verifier for {model_name}")
 
             # Start thread for model
             model_key = model_path.stem
