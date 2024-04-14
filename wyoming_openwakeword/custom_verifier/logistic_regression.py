@@ -20,7 +20,8 @@ def flatten_features(x):
     return [i.flatten() for i in x]
 
 class LogisticRegressionCustomVerifier(CustomVerifier):
-    classifier: Pipeline
+    verifier: Pipeline
+    identifier: Pipeline
 
     def __init__(
         self, positive_samples: dict, negative_samples: list, model_path: str, model_name: str
@@ -33,8 +34,8 @@ class LogisticRegressionCustomVerifier(CustomVerifier):
 
         speaker_names = list(positive_samples.keys())
 
-        labels = []
-        positive_features = None
+        speaker_labels = []
+        speaker_features = None
 
         # Get features from positive reference clips
         for speaker_name in speaker_names:
@@ -52,14 +53,14 @@ class LogisticRegressionCustomVerifier(CustomVerifier):
                     " for the desired model."
                 )
 
-            if positive_features is None:
-                positive_features = positive_features_speaker
+            if speaker_features is None:
+                speaker_features = positive_features_speaker
             else:
-                positive_features = np.vstack(
-                    (positive_features, positive_features_speaker)
+                speaker_features = np.vstack(
+                    (speaker_features, positive_features_speaker)
                 )
 
-            labels += [speaker_name] * positive_features_speaker.shape[0]
+            speaker_labels += [speaker_name] * positive_features_speaker.shape[0]
 
         _LOGGER.info("Processing negative reference clips")
         negative_features = np.vstack(
@@ -68,33 +69,29 @@ class LogisticRegressionCustomVerifier(CustomVerifier):
                 for i in negative_samples
             ]
         )
-        labels += [""] * negative_features.shape[0]
+        verifier_labels = np.array([1] * speaker_features.shape[0] + [0] * negative_features.shape[0])
+        verifier_features = np.vstack((speaker_features, negative_features))
 
-        _LOGGER.info("Training and saving verifier model...")
-        features = np.vstack((positive_features, negative_features))
+        _LOGGER.info("Training verifier model...")
 
         clf = LogisticRegression(random_state=0, max_iter=2000, C=0.001)
         pipeline = make_pipeline(FunctionTransformer(flatten_features), StandardScaler(), clf)
-        pipeline.fit(features, labels)
+        pipeline.fit(verifier_features, verifier_labels)
+        self.verifier = pipeline
         
-        self.classifier = pipeline
+        _LOGGER.info("Training speaker identification model...")
+
+        speaker_clf = LogisticRegression(random_state=0, max_iter=2000, C=0.001)
+        speaker_pipeline = make_pipeline(FunctionTransformer(flatten_features), StandardScaler(), speaker_clf)
+        speaker_pipeline.fit(speaker_features, speaker_labels)
+        self.identifier = speaker_pipeline
 
 
     def predict(self, features) -> VerificationResult:
-        NEGATIVE_CLASS_NAME = ""
-
-        probabilities = self.classifier.predict_proba(features)[0]
+        verification_probability = self.verifier.predict_proba(features)[0][-1]
+        speaker = self.identifier.predict(features)
         
-        negative_class_index = self.classifier.classes_.tolist().index(NEGATIVE_CLASS_NAME)
-        negative_probability = probabilities[negative_class_index]
-        
-        max_probability_index = np.argmax(probabilities)
-        
-        speaker = self.classifier.classes_[max_probability_index]
-        if speaker == NEGATIVE_CLASS_NAME:
-            speaker = None
-        
-        return VerificationResult(probability=1.0 - negative_probability, speaker=speaker)
+        return VerificationResult(probability=verification_probability, speaker=speaker)
 
 
 def _get_reference_clip_features(
